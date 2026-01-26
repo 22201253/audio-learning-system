@@ -1,15 +1,11 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from .database import engine, Base
-from . import models
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import engine, Base, get_db
 from . import models
+from .routes_auth import router as auth_router
 
 # Create all database tables
-# This line go create all the tables we define for models.py
 Base.metadata.create_all(bind=engine)
 
 # Create FastAPI application
@@ -28,6 +24,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include authentication routes
+app.include_router(auth_router)
+
 # Welcome endpoint
 @app.get("/")
 async def root():
@@ -36,7 +35,8 @@ async def root():
         "status": "running",
         "version": "1.0.0",
         "description": "Backend for visually impaired students learning platform",
-        "database": "Connected ✅"
+        "database": "Connected ✅",
+        "authentication": "Active 🔐"
     }
 
 # Health check endpoint
@@ -45,7 +45,8 @@ async def health_check():
     return {
         "status": "healthy",
         "message": "API dey work well! All systems operational ✅",
-        "database": "Connected"
+        "database": "Connected",
+        "authentication": "Ready"
     }
 
 # Info endpoint
@@ -55,7 +56,7 @@ async def api_info():
         "api_name": "Audio Learning System",
         "purpose": "Assistive learning platform for visually impaired students",
         "features": [
-            "User authentication",
+            "User authentication ✅",
             "Lesson management",
             "Quiz system",
             "Progress tracking",
@@ -69,8 +70,14 @@ async def api_info():
             "quizzes",
             "student_progress"
         ],
-        "status": "In Development - Database Ready! 🎉"
+        "auth_endpoints": [
+            "POST /auth/register - Create new user",
+            "POST /auth/login - Login and get token",
+            "GET /auth/me - Get current user info"
+        ],
+        "status": "In Development - Authentication Ready! 🔐"
     }
+
 # Test endpoint - Add sample subject
 @app.post("/test/add-subject")
 async def add_test_subject(db: Session = Depends(get_db)):
@@ -79,7 +86,6 @@ async def add_test_subject(db: Session = Depends(get_db)):
     """
     from .models import Subject
     
-    # Create a test subject
     test_subject = Subject(
         name="Mathematics",
         description="Basic mathematics for students"
@@ -96,4 +102,26 @@ async def add_test_subject(db: Session = Depends(get_db)):
             "name": test_subject.name,
             "description": test_subject.description
         }
+    }
+
+# Test endpoint - Get all subjects
+@app.get("/test/subjects")
+async def get_all_subjects(db: Session = Depends(get_db)):
+    """
+    Test endpoint - Get all subjects from database
+    """
+    from .models import Subject
+    
+    subjects = db.query(Subject).all()
+    
+    return {
+        "total": len(subjects),
+        "subjects": [
+            {
+                "id": s.id,
+                "name": s.name,
+                "description": s.description
+            }
+            for s in subjects
+        ]
     }

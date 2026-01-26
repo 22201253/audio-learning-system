@@ -6,7 +6,7 @@ from .database import Base
 # User Model - For both Teachers and Students
 class User(Base):
     """
-    User table - store information about teachers and students
+    User table - store information about teachers and students (Nigerian style)
     """
     __tablename__ = "users"
     
@@ -14,7 +14,12 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    full_name = Column(String(100), nullable=False)
+    
+    # Nigerian-style name fields
+    first_name = Column(String(50), nullable=False)
+    middle_name = Column(String(50), nullable=True)  # Optional - some people no get middle name
+    surname = Column(String(50), nullable=False)
+    
     role = Column(String(20), nullable=False)  # "teacher" or "student"
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -25,9 +30,8 @@ class User(Base):
     progress = relationship("StudentProgress", back_populates="student")
     
     def __repr__(self):
-        return f"<User {self.username} ({self.role})>"
-
-
+        full_name = f"{self.first_name} {self.middle_name or ''} {self.surname}".strip()
+        return f"<User {self.username} - {full_name} ({self.role})>"
 # Subject Model - E.g., Mathematics, English, Science
 class Subject(Base):
     """
