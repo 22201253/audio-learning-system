@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -126,3 +126,53 @@ class LessonResponse(LessonBase):
     
     class Config:
         from_attributes = True
+
+        # Quiz Schemas
+class QuizBase(BaseModel):
+    """Base quiz schema"""
+    lesson_id: int = Field(..., description="ID of the lesson this quiz belong to")
+    question: str = Field(..., min_length=10, description="Quiz question")
+    question_type: str = Field(default="multiple_choice", 
+                               pattern="^(multiple_choice|true_false|short_answer)$",
+                               description="Type of question")
+    option_a: Optional[str] = Field(None, max_length=200, description="Option A (for multiple choice)")
+    option_b: Optional[str] = Field(None, max_length=200, description="Option B (for multiple choice)")
+    option_c: Optional[str] = Field(None, max_length=200, description="Option C (for multiple choice)")
+    option_d: Optional[str] = Field(None, max_length=200, description="Option D (for multiple choice)")
+    correct_answer: str = Field(..., max_length=200, description="The correct answer")
+    explanation: Optional[str] = Field(None, description="Explanation of the answer")
+    order: int = Field(default=0, description="Order for displaying questions")
+
+
+class QuizCreate(QuizBase):
+    """Schema for creating quiz"""
+    pass
+
+
+class QuizResponse(QuizBase):
+    """Schema for quiz response"""
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# Quiz Submission Schemas
+class QuizSubmission(BaseModel):
+    """Schema for student submitting quiz answers"""
+    lesson_id: int = Field(..., description="ID of the lesson")
+    answers: dict = Field(..., description="Dictionary of quiz_id: answer pairs")
+    # Example: {"1": "A", "2": "B", "3": "True"}
+
+
+class QuizResult(BaseModel):
+    """Schema for quiz result"""
+    lesson_id: int
+    total_questions: int
+    correct_answers: int
+    score_percentage: float
+    passed: bool
+    pass_mark: int
+    attempts: int
+    results: List[dict]
