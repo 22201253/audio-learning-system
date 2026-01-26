@@ -8,12 +8,12 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
 
-# Secret key for JWT - In production, this supposed to dey for environment variable
+# Secret key for JWT - In production, this supposed to be in environment variable
 SECRET_KEY = "your-secret-key-change-this-in-production-12345"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Password hashing context - we go use bcrypt
+# Password hashing context - we use bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme - for getting token from request

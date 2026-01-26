@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from .database import engine, Base, get_db
 from . import models
 from .routes_auth import router as auth_router
+from .routes_lessons import router as lessons_router
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
@@ -26,6 +27,7 @@ app.add_middleware(
 
 # Include authentication routes
 app.include_router(auth_router)
+app.include_router(lessons_router)
 
 # Welcome endpoint
 @app.get("/")
@@ -44,7 +46,7 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "message": "API dey work well! All systems operational ✅",
+        "message": "API works well! All systems operational ✅",
         "database": "Connected",
         "authentication": "Ready"
     }

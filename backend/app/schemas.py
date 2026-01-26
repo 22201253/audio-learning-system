@@ -78,3 +78,51 @@ class SubjectResponse(SubjectBase):
     
     class Config:
         from_attributes = True
+
+        # Topic Schemas
+class TopicBase(BaseModel):
+    """Base topic schema"""
+    subject_id: int = Field(..., description="ID of the subject this topic belong to")
+    name: str = Field(..., min_length=1, max_length=100, description="Topic name (e.g., Algebra, Grammar)")
+    description: Optional[str] = Field(None, description="Topic description")
+    order: int = Field(default=0, description="Order for displaying topics")
+
+
+class TopicCreate(TopicBase):
+    """Schema for creating topic"""
+    pass
+
+
+class TopicResponse(TopicBase):
+    """Schema for topic response"""
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# Lesson Schemas
+class LessonBase(BaseModel):
+    """Base lesson schema"""
+    topic_id: int = Field(..., description="ID of the topic this lesson belong to")
+    title: str = Field(..., min_length=1, max_length=200, description="Lesson title")
+    content: str = Field(..., min_length=10, description="Lesson content TTS will read")
+    duration_minutes: int = Field(default=10, description="Estimated lesson duration (minutes)")
+    order: int = Field(default=0, description="Order for displaying lessons")
+    is_published: bool = Field(default=False, description="Is this lesson ready for students?")
+
+
+class LessonCreate(LessonBase):
+    """Schema for creating lesson"""
+    pass
+
+
+class LessonResponse(LessonBase):
+    """Schema for lesson response"""
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime]
+    
+    class Config:
+        from_attributes = True

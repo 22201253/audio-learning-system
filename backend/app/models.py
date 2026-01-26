@@ -6,7 +6,7 @@ from .database import Base
 # User Model - For both Teachers and Students
 class User(Base):
     """
-    User table - store information about teachers and students (Nigerian style)
+    User table - store information about teachers and students
     """
     __tablename__ = "users"
     
@@ -15,9 +15,9 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     
-    # Nigerian-style name fields
+    # All-style name fields
     first_name = Column(String(50), nullable=False)
-    middle_name = Column(String(50), nullable=True)  # Optional - some people no get middle name
+    middle_name = Column(String(50), nullable=True)  # Optional - some people don't have middle name
     surname = Column(String(50), nullable=False)
     
     role = Column(String(20), nullable=False)  # "teacher" or "student"
@@ -26,7 +26,7 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    # If this user na student, e go get progress records
+    # If this user a student, it will assign progress records
     progress = relationship("StudentProgress", back_populates="student")
     
     def __repr__(self):
@@ -77,14 +77,14 @@ class Topic(Base):
 # Lesson Model - The actual lesson content
 class Lesson(Base):
     """
-    Lesson table - store lesson content (text that TTS go read)
+    Lesson table - store lesson content (text that TTS reads)
     """
     __tablename__ = "lessons"
     
     id = Column(Integer, primary_key=True, index=True)
     topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)  # The lesson text wey TTS go read
+    content = Column(Text, nullable=False)  # The lesson text TTS will read
     duration_minutes = Column(Integer, default=10)  # Estimated lesson duration
     order = Column(Integer, default=0)  # For ordering lessons
     is_published = Column(Boolean, default=False)
@@ -130,7 +130,7 @@ class Quiz(Base):
 # Student Progress Model - Track student's learning progress
 class StudentProgress(Base):
     """
-    Student Progress table - track which lessons student don complete and their quiz scores
+    Student Progress table - track which lessons student has completed and their quiz scores
     """
     __tablename__ = "student_progress"
     

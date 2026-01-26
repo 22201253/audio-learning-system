@@ -2,28 +2,28 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# SQLite database URL - this go create a file called "audio_learning.db"
-# We dey use SQLite because e simple and work offline
+# SQLite database URL - this will create a file called "audio_learning.db"
+# We used SQLite because its simple and work offline
 SQLALCHEMY_DATABASE_URL = "sqlite:///./audio_learning.db"
 
 # Create database engine
-# check_same_thread=False na for SQLite only - e allow multiple threads
+# check_same_thread=False for SQLite only - allows multiple threads
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 
     connect_args={"check_same_thread": False}
 )
 
-# Create SessionLocal class - we go use am to talk to database
+# Create SessionLocal class - we use this to talk to database
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create Base class - all our database models go inherit from this
+# Create Base class - all our database models inherit from this
 Base = declarative_base()
 
 # Dependency function - to get database session
 def get_db():
     """
-    This function go give us database session
-    When we done use am, e go close automatically
+    This function gives us database session
+    After use, it closes automatically
     """
     db = SessionLocal()
     try:
