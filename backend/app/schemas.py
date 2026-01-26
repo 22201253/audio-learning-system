@@ -176,3 +176,29 @@ class QuizResult(BaseModel):
     pass_mark: int
     attempts: int
     results: List[dict]
+
+    # Progress Schemas
+class ProgressResponse(BaseModel):
+    """Schema for progress response"""
+    id: int
+    student_id: int
+    lesson_id: int
+    is_completed: bool
+    completion_date: Optional[datetime]
+    quiz_score: Optional[float]
+    quiz_attempts: int
+    last_accessed: datetime
+    
+    class Config:
+        from_attributes = True
+
+class StudentProgressReport(BaseModel):
+    """Schema for detailed student progress report"""
+    student_id: int
+    student_name: str
+    total_lessons_started: int
+    completed_lessons: int
+    completion_rate: float
+    average_score: float
+    total_quiz_attempts: int
+    lessons: List[ProgressResponse]

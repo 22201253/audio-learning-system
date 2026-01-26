@@ -6,6 +6,7 @@ from . import models
 from .routes_auth import router as auth_router
 from .routes_lessons import router as lessons_router
 from .routes_quiz import router as quiz_router
+from .routes_progress import router as progress_router
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
@@ -30,6 +31,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(lessons_router)
 app.include_router(quiz_router)
+app.include_router(progress_router)
 
 # Welcome endpoint
 @app.get("/")
