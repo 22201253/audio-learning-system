@@ -12,7 +12,17 @@ class State(rx.State):
     lessons_count: int = 0
     students_count: int = 0
     
+    # Subject creation
+    subject_name: str = ""
+    subject_desc: str = ""
+    
+    # Topic creation
+    topic_subject_id: str = "1"
+    topic_name: str = ""
+    topic_desc: str = ""
+    
     # Lesson creation
+    lesson_topic_id: str = "1"
     lesson_title: str = ""
     lesson_content: str = ""
     
@@ -42,9 +52,10 @@ class State(rx.State):
                     data = response.json()
                     self.token = data["access_token"]
                     self.is_logged_in = True
+                    self.message = ""
                     await self.load_stats()
-        except:
-            self.message = "Cannot connect to backend!"
+        except Exception as e:
+                self.message = f"Cannot connect to backend! Error: {str(e)}"
     
     def logout(self):
         self.is_logged_in = False
@@ -72,6 +83,45 @@ class State(rx.State):
         except:
             pass
     
+    async def create_subject(self):
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{API_URL}/lessons/subjects",
+                    headers={"Authorization": f"Bearer {self.token}"},
+                    json={
+                        "name": self.subject_name,
+                        "description": self.subject_desc
+                    }
+                )
+                if response.status_code == 201:
+                    self.message = f"✅ Subject '{self.subject_name}' created! ID: {response.json()['id']}"
+                    self.subject_name = ""
+                    self.subject_desc = ""
+                    await self.load_stats()
+        except:
+            self.message = "❌ Error creating subject!"
+    
+    async def create_topic(self):
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{API_URL}/lessons/topics",
+                    headers={"Authorization": f"Bearer {self.token}"},
+                    json={
+                        "subject_id": int(self.topic_subject_id),
+                        "name": self.topic_name,
+                        "description": self.topic_desc,
+                        "order": 1
+                    }
+                )
+                if response.status_code == 201:
+                    self.message = f"✅ Topic '{self.topic_name}' created! ID: {response.json()['id']}"
+                    self.topic_name = ""
+                    self.topic_desc = ""
+        except:
+            self.message = "❌ Error creating topic!"
+    
     async def create_lesson(self):
         try:
             async with httpx.AsyncClient() as client:
@@ -79,7 +129,7 @@ class State(rx.State):
                     f"{API_URL}/lessons/",
                     headers={"Authorization": f"Bearer {self.token}"},
                     json={
-                        "topic_id": 1,
+                        "topic_id": int(self.lesson_topic_id),
                         "title": self.lesson_title,
                         "content": self.lesson_content,
                         "duration_minutes": 15,
@@ -88,7 +138,7 @@ class State(rx.State):
                     }
                 )
                 if response.status_code == 201:
-                    self.message = "✅ Lesson created successfully!"
+                    self.message = f"✅ Lesson '{self.lesson_title}' created successfully!"
                     self.lesson_title = ""
                     self.lesson_content = ""
                     await self.load_stats()
@@ -176,12 +226,83 @@ def dashboard():
             width="100%"
         ),
         
+        # Create Subject Section
+        rx.card(
+            rx.vstack(
+                rx.heading("📚 1. Create Subject", size="6", color="cyan"),
+                rx.text("First, create a subject (e.g., English, Government)", size="2", color="gray"),
+                rx.input(
+                    placeholder="Subject Name (e.g., English, Government, Mathematics)",
+                    on_change=State.set_subject_name,
+                    value=State.subject_name,
+                    width="100%"
+                ),
+                rx.input(
+                    placeholder="Subject Description (optional)",
+                    on_change=State.set_subject_desc,
+                    value=State.subject_desc,
+                    width="100%"
+                ),
+                rx.button(
+                    "Create Subject",
+                    on_click=State.create_subject,
+                    width="100%",
+                    color_scheme="cyan"
+                ),
+                spacing="3",
+                width="100%"
+            ),
+            width="100%"
+        ),
+        
+        # Create Topic Section
+        rx.card(
+            rx.vstack(
+                rx.heading("📖 2. Create Topic", size="6", color="orange"),
+                rx.text("After creating subject, create topics under it", size="2", color="gray"),
+                rx.input(
+                    placeholder="Subject ID (copy from message above after creating subject)",
+                    on_change=State.set_topic_subject_id,
+                    value=State.topic_subject_id,
+                    width="100%"
+                ),
+                rx.input(
+                    placeholder="Topic Name (e.g., Grammar, Constitution, Algebra)",
+                    on_change=State.set_topic_name,
+                    value=State.topic_name,
+                    width="100%"
+                ),
+                rx.input(
+                    placeholder="Topic Description (optional)",
+                    on_change=State.set_topic_desc,
+                    value=State.topic_desc,
+                    width="100%"
+                ),
+                rx.button(
+                    "Create Topic",
+                    on_click=State.create_topic,
+                    width="100%",
+                    color_scheme="orange"
+                ),
+                spacing="3",
+                width="100%"
+            ),
+            width="100%"
+        ),
+        
         # Create Lesson Section
         rx.card(
             rx.vstack(
-                rx.heading("📝 Create New Lesson", size="6"),
+                rx.heading("📝 3. Create Lesson", size="6", color="green"),
+                rx.text("After creating topic, add lessons to it", size="2", color="gray"),
                 rx.input(
-                    placeholder="Lesson Title (e.g., Introduction to Fractions)",
+                    placeholder="Topic ID (copy from message above after creating topic)",
+                    on_change=State.set_lesson_topic_id,
+                    value=State.lesson_topic_id,
+                    width="100%"
+                ),
+                rx.input(
+                    placeholder="Lesson Title (e.g., Introduction to Grammar)",
                     on_change=State.set_lesson_title,
                     value=State.lesson_title,
                     width="100%"
@@ -193,7 +314,12 @@ def dashboard():
                     width="100%",
                     height="150px"
                 ),
-                rx.button("Create Lesson", on_click=State.create_lesson, width="100%", color_scheme="green"),
+                rx.button(
+                    "Create Lesson",
+                    on_click=State.create_lesson,
+                    width="100%",
+                    color_scheme="green"
+                ),
                 spacing="3",
                 width="100%"
             ),
@@ -203,15 +329,36 @@ def dashboard():
         # Create Quiz Section
         rx.card(
             rx.vstack(
-                rx.heading("❓ Create Quiz Question", size="6"),
-                rx.input(placeholder="Lesson ID (e.g., 1)", on_change=State.set_quiz_lesson_id, value=State.quiz_lesson_id, width="100%"),
-                rx.input(placeholder="Question", on_change=State.set_quiz_question, value=State.quiz_question, width="100%"),
+                rx.heading("❓ 4. Create Quiz Question", size="6", color="blue"),
+                rx.text("Finally, add quiz questions for the lesson", size="2", color="gray"),
+                rx.input(
+                    placeholder="Lesson ID (check backend for lesson IDs or use 1 for first lesson)",
+                    on_change=State.set_quiz_lesson_id,
+                    value=State.quiz_lesson_id,
+                    width="100%"
+                ),
+                rx.input(
+                    placeholder="Question (e.g., What is a noun?)",
+                    on_change=State.set_quiz_question,
+                    value=State.quiz_question,
+                    width="100%"
+                ),
                 rx.input(placeholder="Option A", on_change=State.set_quiz_option_a, value=State.quiz_option_a, width="100%"),
                 rx.input(placeholder="Option B", on_change=State.set_quiz_option_b, value=State.quiz_option_b, width="100%"),
                 rx.input(placeholder="Option C", on_change=State.set_quiz_option_c, value=State.quiz_option_c, width="100%"),
                 rx.input(placeholder="Option D", on_change=State.set_quiz_option_d, value=State.quiz_option_d, width="100%"),
-                rx.input(placeholder="Correct Answer (A, B, C, or D)", on_change=State.set_quiz_correct, value=State.quiz_correct, width="100%"),
-                rx.button("Create Quiz", on_click=State.create_quiz, width="100%", color_scheme="blue"),
+                rx.input(
+                    placeholder="Correct Answer (A, B, C, or D)",
+                    on_change=State.set_quiz_correct,
+                    value=State.quiz_correct,
+                    width="100%"
+                ),
+                rx.button(
+                    "Create Quiz",
+                    on_click=State.create_quiz,
+                    width="100%",
+                    color_scheme="blue"
+                ),
                 spacing="3",
                 width="100%"
             ),
@@ -221,7 +368,7 @@ def dashboard():
         # Student Progress Section
         rx.card(
             rx.vstack(
-                rx.heading("📊 View Student Progress", size="6"),
+                rx.heading("📊 View Student Progress", size="6", color="purple"),
                 rx.button(
                     "Load Students Progress",
                     on_click=State.load_students_progress,
@@ -244,7 +391,7 @@ def dashboard():
             width="100%"
         ),
         
-        # Message
+        # Message Display
         rx.cond(
             State.message != "",
             rx.callout(State.message, size="2")

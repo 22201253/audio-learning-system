@@ -110,24 +110,29 @@ async def add_test_subject(db: Session = Depends(get_db)):
         }
     }
 
-# Test endpoint - Get all subjects
-@app.get("/test/subjects")
-async def get_all_subjects(db: Session = Depends(get_db)):
-    """
-    Test endpoint - Get all subjects from database
-    """
-    from .models import Subject
+# CHANGE IT TO THIS:
+@app.get("/lessons/{lesson_id}")
+async def get_lesson(lesson_id: str, db: Session = Depends(get_db)): # Change 'int' to 'str'
     
-    subjects = db.query(Subject).all()
+    from .models import Lesson, Subject
     
+    # Check if the input is a number (like "1") or a word (like "english")
+    if lesson_id.isdigit():
+        # If it's a number, find by ID
+        lesson = db.query(Lesson).filter(Lesson.id == int(lesson_id)).first()
+    else:
+        # If it's a word, find the subject first, then the lesson
+        subject = db.query(Subject).filter(Subject.name.ilike(lesson_id)).first()
+        if not subject:
+            return {"detail": "Subject not found"}
+        lesson = db.query(Lesson).filter(Lesson.subject_id == subject.id).first()
+
+    if not lesson:
+        return {"detail": "Lesson not found"}
+
     return {
-        "total": len(subjects),
-        "subjects": [
-            {
-                "id": s.id,
-                "name": s.name,
-                "description": s.description
-            }
-            for s in subjects
-        ]
+        "id": lesson.id,
+        "title": lesson.title,
+        "content": lesson.content
     }
+
