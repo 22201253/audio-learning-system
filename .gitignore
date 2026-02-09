@@ -37,3 +37,8 @@ Thumbs.db
 # Audio files
 *.mp3
 tts_*.mp3
+
+# Large folders
+admin-dashboard/.web/
+backend/venv/
+desktop-app/venv/
