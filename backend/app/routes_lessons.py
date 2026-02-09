@@ -1,207 +1,198 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
+import json
 from .database import get_db
-from .models import Subject, Topic, Lesson, User
-from .schemas import (
-    SubjectCreate, SubjectResponse,
-    TopicCreate, TopicResponse,
-    LessonCreate, LessonResponse
-)
-from .auth import get_current_active_user
+from .models import Subject, Lesson, Quiz, DeletedItem, User
+from .schemas import SubjectCreate, SubjectResponse, LessonCreate, LessonResponse
+from .routes_auth import get_current_user
 
-router = APIRouter(prefix="/lessons", tags=["Lesson Management"])
+router = APIRouter(prefix="/lessons", tags=["Lessons"])
 
-
-# ============ SUBJECT ENDPOINTS ============
-
-@router.post("/subjects", response_model=SubjectResponse, status_code=status.HTTP_201_CREATED)
-async def create_subject(
-    subject: SubjectCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Create new subject (Only teachers)"""
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only teachers fit create subjects!")
-    
-    existing = db.query(Subject).filter(Subject.name == subject.name).first()
-    if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Subject '{subject.name}' don already exist!")
-    
-    new_subject = Subject(**subject.dict())
-    db.add(new_subject)
-    db.commit()
-    db.refresh(new_subject)
-    
-    return new_subject
-
+# ==================== SUBJECT ROUTES ====================
 
 @router.get("/subjects", response_model=List[SubjectResponse])
-async def get_all_subjects(db: Session = Depends(get_db)):
-    """Get all subjects"""
-    subjects = db.query(Subject).all()
-    return subjects
+async def get_subjects(db: Session = Depends(get_db)):
+    return db.query(Subject).filter(Subject.is_deleted == False).all()
+
+
+@router.get("/subjects/trash", response_model=List[SubjectResponse])
+async def get_trash_subjects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return db.query(Subject).filter(
+        Subject.is_deleted == True,
+        Subject.teacher_id == current_user.id
+    ).all()
 
 
 @router.get("/subjects/{subject_id}", response_model=SubjectResponse)
 async def get_subject(subject_id: int, db: Session = Depends(get_db)):
-    """Get one subject by ID"""
-    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    subject = db.query(Subject).filter(
+        Subject.id == subject_id,
+        Subject.is_deleted == False
+    ).first()
+
     if not subject:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Subject with ID {subject_id} no dey exist!")
+        raise HTTPException(status_code=404, detail="Subject not found")
+
     return subject
 
 
-@router.get("/subjects/{subject_id}/topics", response_model=List[TopicResponse])
-async def get_topics_by_subject(subject_id: int, db: Session = Depends(get_db)):
-    """Get all topics for a subject"""
-    topics = db.query(Topic).filter(Topic.subject_id == subject_id).order_by(Topic.order).all()
-    return topics
-
-
-# ============ TOPIC ENDPOINTS ============
-
-@router.post("/topics", response_model=TopicResponse, status_code=status.HTTP_201_CREATED)
-async def create_topic(
-    topic: TopicCreate,
+@router.post("/subjects", response_model=SubjectResponse, status_code=201)
+async def create_subject(
+    subject_data: SubjectCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Create new topic (Only teachers)"""
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only teachers fit create topics!")
-    
-    subject = db.query(Subject).filter(Subject.id == topic.subject_id).first()
+    subject = Subject(
+        name=subject_data.name,
+        description=subject_data.description or "",
+        teacher_id=current_user.id,
+        is_deleted=False
+    )
+    db.add(subject)
+    db.commit()
+    db.refresh(subject)
+    return subject
+
+
+@router.delete("/subjects/{subject_id}")
+async def delete_subject(
+    subject_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    subject = db.query(Subject).filter(
+        Subject.id == subject_id,
+        Subject.is_deleted == False
+    ).first()
+
     if not subject:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Subject with ID {topic.subject_id} no dey exist!")
-    
-    new_topic = Topic(**topic.dict())
-    db.add(new_topic)
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    if subject.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    subject.is_deleted = True
+    subject.deleted_at = datetime.utcnow()
     db.commit()
-    db.refresh(new_topic)
-    
-    return new_topic
+
+    return {"success": True, "message": "Subject moved to trash"}
 
 
-@router.get("/topics/{topic_id}/lessons", response_model=List[LessonResponse])
-async def get_lessons_by_topic(topic_id: int, db: Session = Depends(get_db)):
-    """Get all lessons for a topic"""
-    lessons = db.query(Lesson).filter(Lesson.topic_id == topic_id).order_by(Lesson.order).all()
-    return lessons
-
-
-# ============ LESSON ENDPOINTS ============
-
-@router.post("/", response_model=LessonResponse, status_code=status.HTTP_201_CREATED)
-async def create_lesson(
-    lesson: LessonCreate,
+@router.post("/subjects/{subject_id}/undo")
+async def restore_subject(
+    subject_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Create new lesson (Only teachers)"""
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only teachers fit create lessons!")
-    
-    topic = db.query(Topic).filter(Topic.id == lesson.topic_id).first()
-    if not topic:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Topic with ID {lesson.topic_id} no dey exist!")
-    
-    new_lesson = Lesson(**lesson.dict())
-    db.add(new_lesson)
+    subject = db.query(Subject).filter(
+        Subject.id == subject_id,
+        Subject.is_deleted == True
+    ).first()
+
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    subject.is_deleted = False
+    subject.deleted_at = None
     db.commit()
-    db.refresh(new_lesson)
-    
-    return new_lesson
+
+    return {"success": True, "message": "Subject restored"}
 
 
+# ==================== LESSON ROUTES ====================
+# ⚠️ CRITICAL: Route order matters! Specific routes BEFORE generic ones
+
+# ✅ SPECIFIC routes first (with literal path segments like "by-subject")
+@router.get("/by-subject/{subject_id}", response_model=List[LessonResponse])
+async def get_lessons_by_subject(
+    subject_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all lessons for a specific subject
+    """
+    subject = db.query(Subject).filter(
+        Subject.id == subject_id,
+        Subject.is_deleted == False
+    ).first()
+
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    return db.query(Lesson).filter(Lesson.topic_id == subject_id).all()
+
+
+# ✅ ROOT routes AFTER specific routes
 @router.get("/", response_model=List[LessonResponse])
-async def get_all_lessons(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """Get all lessons"""
-    lessons = db.query(Lesson).offset(skip).limit(limit).all()
+async def get_all_lessons(
+    topic_id: int = None,
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100
+):
+    """
+    Get all lessons, optionally filtered by topic_id
+    """
+    query = db.query(Lesson)
+    
+    if topic_id:
+        query = query.filter(Lesson.topic_id == topic_id)
+    
+    lessons = query.offset(skip).limit(limit).all()
     return lessons
 
 
-@router.get("/{lesson_id}", response_model=LessonResponse)
-async def get_lesson(lesson_id: int, db: Session = Depends(get_db)):
-    """Get single lesson"""
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-    if not lesson:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lesson with ID {lesson_id} no dey exist!")
-    return lesson
-
-
-@router.get("/by-subject/{subject_id}")
-async def get_lessons_by_subject(subject_id: int, db: Session = Depends(get_db)):
-    """Get all lessons under a subject (through topics)"""
-    # Get all topics for this subject
-    topics = db.query(Topic).filter(Topic.subject_id == subject_id).all()
-    topic_ids = [t.id for t in topics]
-    
-    # Get all lessons for these topics
-    lessons = db.query(Lesson).filter(Lesson.topic_id.in_(topic_ids)).all()
-    
-    # Get subject name
-    subject = db.query(Subject).filter(Subject.id == subject_id).first()
-    subject_name = subject.name if subject else "Unknown"
-    
-    return {
-        "subject_id": subject_id,
-        "subject_name": subject_name,
-        "total_lessons": len(lessons),
-        "lessons": [
-            {
-                "id": l.id,
-                "title": l.title,
-                "content": l.content,
-                "topic_id": l.topic_id,
-                "duration_minutes": l.duration_minutes,
-                "is_published": l.is_published
-            }
-            for l in lessons
-        ]
-    }
-
-
-@router.put("/{lesson_id}", response_model=LessonResponse)
-async def update_lesson(
-    lesson_id: int,
-    lesson_update: LessonCreate,
+@router.post("/", response_model=LessonResponse, status_code=201)
+async def create_lesson(
+    lesson_data: LessonCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Update lesson (Only teachers)"""
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only teachers fit update lessons!")
-    
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
-    if not lesson:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lesson with ID {lesson_id} no dey exist!")
-    
-    for key, value in lesson_update.dict().items():
-        setattr(lesson, key, value)
-    
+    """
+    Create a new lesson
+    """
+    subject = db.query(Subject).filter(
+        Subject.id == lesson_data.topic_id,
+        Subject.is_deleted == False
+    ).first()
+
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    lesson = Lesson(
+        topic_id=lesson_data.topic_id,
+        title=lesson_data.title,
+        content=lesson_data.content,
+        duration=lesson_data.duration or "15 min",
+        order=lesson_data.order or 0
+    )
+
+    db.add(lesson)
     db.commit()
     db.refresh(lesson)
-    
     return lesson
 
 
+# ✅ DYNAMIC routes with {id} LAST
 @router.delete("/{lesson_id}")
 async def delete_lesson(
     lesson_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Delete lesson (Only teachers)"""
-    if current_user.role != "teacher":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only teachers fit delete lessons!")
-    
+    """
+    Delete a lesson
+    """
     lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+
     if not lesson:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lesson with ID {lesson_id} no dey exist!")
-    
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
     db.delete(lesson)
     db.commit()
-    
-    return {"message": f"Lesson '{lesson.title}' don delete successfully!"}
+    return {"success": True, "message": "Lesson deleted"}

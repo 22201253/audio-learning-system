@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment
+.env
+.env.local
+
+# Reflex
+.web/
+.reflex/
+
+# Desktop app builds
+desktop-app/dist/
+desktop-app/build/
+*.spec
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Audio files
+*.mp3
+tts_*.mp3

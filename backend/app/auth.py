@@ -1,3 +1,4 @@
+# auth.py - Core authentication utilities
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -7,11 +8,15 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
+import os
+from dotenv import load_dotenv
 
-# Secret key for JWT - In production, this supposed to be in environment variable
-SECRET_KEY = "your-secret-key-change-this-in-production-12345"
+load_dotenv()
+
+# Secret key for JWT - MUST match routes_auth.py
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key-123")  # Changed to match routes_auth.py
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours (matches routes_auth.py)
 
 # Password hashing context - we use bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -22,7 +27,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
-    Check if plain password match the hashed password
+    Check if plain password matches the hashed password
     """
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -42,7 +47,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -51,7 +56,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
     Get current user from JWT token
-    This function go verify the token and return the user
+    This function will verify the token and return the user
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -74,7 +79,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 def get_current_active_user(current_user: User = Depends(get_current_user)):
     """
-    Check if current user dey active
+    Check if current user is active
     """
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")

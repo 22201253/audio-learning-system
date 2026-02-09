@@ -1,151 +1,130 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Float
+# ==================== UPDATES FOR models.py ====================
+# Location: backend/models.py
+# Add/Update these models
+
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from datetime import datetime
 from .database import Base
 
-# User Model - For both Teachers and Students
+# ==================== USER MODEL ====================
+# ADD THESE FIELDS if not present:
+
 class User(Base):
-    """
-    User table - store information about teachers and students
-    """
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, index=True, nullable=False)
-    email = Column(String(100), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    
-    # All-style name fields
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(100), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
     first_name = Column(String(50), nullable=False)
-    middle_name = Column(String(50), nullable=True)  # Optional - some people don't have middle name
-    surname = Column(String(50), nullable=False)
-    
-    role = Column(String(20), nullable=False)  # "teacher" or "student"
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    surname = Column(String(50), default="")
+    role = Column(String(20), nullable=False)  # 'student' or 'teacher'
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    # If this user a student, it will assign progress records
+    subjects = relationship("Subject", back_populates="teacher")
     progress = relationship("StudentProgress", back_populates="student")
-    
-    def __repr__(self):
-        full_name = f"{self.first_name} {self.middle_name or ''} {self.surname}".strip()
-        return f"<User {self.username} - {full_name} ({self.role})>"
-# Subject Model - E.g., Mathematics, English, Science
+
+
+# ==================== SUBJECT MODEL ====================
+# ADD THESE FIELDS if not present:
+
 class Subject(Base):
-    """
-    Subject table - store different subjects like Math, English, etc.
-    """
     __tablename__ = "subjects"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, nullable=False)
-    description = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Relationships
-    topics = relationship("Topic", back_populates="subject", cascade="all, delete-orphan")
-    
-    def __repr__(self):
-        return f"<Subject {self.name}>"
-
-
-# Topic Model - E.g., Algebra, Grammar, Photosynthesis
-class Topic(Base):
-    """
-    Topic table - store topics under each subject
-    E.g., Mathematics > Algebra, English > Grammar
-    """
-    __tablename__ = "topics"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     name = Column(String(100), nullable=False)
-    description = Column(Text, nullable=True)
-    order = Column(Integer, default=0)  # For ordering topics
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    description = Column(Text, default="")
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_deleted = Column(Boolean, default=False)  # ADD THIS for soft delete
+    deleted_at = Column(DateTime, nullable=True)  # ADD THIS for soft delete
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    subject = relationship("Subject", back_populates="topics")
-    lessons = relationship("Lesson", back_populates="topic", cascade="all, delete-orphan")
-    
-    def __repr__(self):
-        return f"<Topic {self.name}>"
+    teacher = relationship("User", back_populates="subjects")
+    lessons = relationship("Lesson", back_populates="subject", cascade="all, delete-orphan")
 
+class Topic(Base):
+    __tablename__ = "topics"
 
-# Lesson Model - The actual lesson content
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+    name = Column(String)
+    description = Column(String, nullable=True)
+    order = Column(Integer, default=1)
+
+# ==================== LESSON MODEL ====================
+# Your existing Lesson model should work, but ensure it has these fields:
+
 class Lesson(Base):
-    """
-    Lesson table - store lesson content (text that TTS reads)
-    """
     __tablename__ = "lessons"
     
     id = Column(Integer, primary_key=True, index=True)
-    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
+    topic_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)  # The lesson text TTS will read
-    duration_minutes = Column(Integer, default=10)  # Estimated lesson duration
-    order = Column(Integer, default=0)  # For ordering lessons
-    is_published = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    content = Column(Text, nullable=False)
+    duration = Column(String(50), default="15 min")
+    order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    topic = relationship("Topic", back_populates="lessons")
+    subject = relationship("Subject", back_populates="lessons")
     quizzes = relationship("Quiz", back_populates="lesson", cascade="all, delete-orphan")
     progress = relationship("StudentProgress", back_populates="lesson")
-    
-    def __repr__(self):
-        return f"<Lesson {self.title}>"
 
 
-# Quiz Model - Quiz questions for each lesson
+# ==================== QUIZ MODEL ====================
+# Your existing Quiz model should work:
+
 class Quiz(Base):
-    """
-    Quiz table - store quiz questions for lessons
-    """
     __tablename__ = "quizzes"
     
     id = Column(Integer, primary_key=True, index=True)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
     question = Column(Text, nullable=False)
-    question_type = Column(String(20), default="multiple_choice")  # multiple_choice, true_false, short_answer
-    option_a = Column(String(200), nullable=True)
-    option_b = Column(String(200), nullable=True)
-    option_c = Column(String(200), nullable=True)
-    option_d = Column(String(200), nullable=True)
-    correct_answer = Column(String(200), nullable=False)  # Store the correct answer
-    explanation = Column(Text, nullable=True)  # Explanation for the answer
-    order = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    option_a = Column(String(200), nullable=False)
+    option_b = Column(String(200), nullable=False)
+    option_c = Column(String(200), nullable=False)
+    option_d = Column(String(200), nullable=False)
+    correct_answer = Column(String(1), nullable=False)  # 'A', 'B', 'C', or 'D'
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     lesson = relationship("Lesson", back_populates="quizzes")
+
+
+# ==================== DELETED ITEM MODEL ====================
+# ADD THIS NEW MODEL for trash functionality:
+
+class DeletedItem(Base):
+    __tablename__ = "deleted_items"
     
-    def __repr__(self):
-        return f"<Quiz {self.id} for Lesson {self.lesson_id}>"
+    id = Column(Integer, primary_key=True, index=True)
+    item_type = Column(String(50), nullable=False)  # 'subject', 'lesson', 'quiz'
+    item_id = Column(Integer, nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    item_data = Column(Text, nullable=False)  # JSON string
+    deleted_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships (optional)
+    teacher = relationship("User")
 
 
-# Student Progress Model - Track student's learning progress
+# ==================== STUDENT PROGRESS MODEL ====================
+# Your existing StudentProgress model should work:
+
 class StudentProgress(Base):
-    """
-    Student Progress table - track which lessons student has completed and their quiz scores
-    """
     __tablename__ = "student_progress"
     
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
-    is_completed = Column(Boolean, default=False)
-    completion_date = Column(DateTime(timezone=True), nullable=True)
-    quiz_score = Column(Float, nullable=True)  # Percentage score (0-100)
-    quiz_attempts = Column(Integer, default=0)
-    last_accessed = Column(DateTime(timezone=True), server_default=func.now())
+    score = Column(Integer, nullable=False)
+    total_questions = Column(Integer, nullable=False)
+    percentage = Column(Integer)
+    completed_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     student = relationship("User", back_populates="progress")
     lesson = relationship("Lesson", back_populates="progress")
-    
-    def __repr__(self):
-        return f"<Progress Student:{self.student_id} Lesson:{self.lesson_id}>"

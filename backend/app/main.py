@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from .database import engine, Base, get_db
+from . database import engine, Base, get_db
 from . import models
+from .models import Lesson, Subject
 from .routes_auth import router as auth_router
 from .routes_lessons import router as lessons_router
 from .routes_quiz import router as quiz_router
@@ -10,6 +11,9 @@ from .routes_progress import router as progress_router
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
 
 # Create FastAPI application
 app = FastAPI(
@@ -113,8 +117,6 @@ async def add_test_subject(db: Session = Depends(get_db)):
 # CHANGE IT TO THIS:
 @app.get("/lessons/{lesson_id}")
 async def get_lesson(lesson_id: str, db: Session = Depends(get_db)): # Change 'int' to 'str'
-    
-    from .models import Lesson, Subject
     
     # Check if the input is a number (like "1") or a word (like "english")
     if lesson_id.isdigit():
