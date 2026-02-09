@@ -9,7 +9,7 @@ import httpx
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 
-API_URL = "http://localhost:8001"
+API_URL = "https://audio-learning-system.onrender.com"
 
 # ===================== MODELS =====================
 class Subject(BaseModel):
