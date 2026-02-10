@@ -110,8 +110,7 @@ async def login(
             "role": user.role,
             "sub": user.username
         },
-        expires_delta=access_token_expires,
-        secret_key=SECRET_KEY
+        expires_delta=access_token_expires
     )
     
     return {
