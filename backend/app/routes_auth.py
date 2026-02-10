@@ -1,5 +1,3 @@
-# routes_auth.py - Authentication routes
-# FIXED: Uses functions from auth.py to avoid duplication
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -10,6 +8,7 @@ from datetime import timedelta
 from .database import get_db
 from .models import User
 from .schemas import UserCreate, UserResponse, Token, PasswordReset
+
 # Import from auth.py to avoid duplication
 from .auth import (
     get_password_hash,
@@ -17,7 +16,8 @@ from .auth import (
     create_access_token,
     get_current_user,
     oauth2_scheme,
-    ACCESS_TOKEN_EXPIRE_MINUTES
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    SECRET_KEY
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -110,7 +110,8 @@ async def login(
             "role": user.role,
             "sub": user.username
         },
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
+        secret_key=SECRET_KEY
     )
     
     return {
@@ -152,7 +153,8 @@ async def login_for_access_token(
             "role": user.role,
             "sub": user.username
         },
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
+        secret_key=SECRET_KEY
     )
     
     return {
